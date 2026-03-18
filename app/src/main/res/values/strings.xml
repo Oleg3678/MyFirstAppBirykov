@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">MyFirstApp Birykov</string>
+    <string name="student_info" translatable="false">Student: Biyrukov\nGroup: 3.2ISIP-2</string>
+    <string name="main_text" translatable="false"> MyFirstApp</string>
+</resources>
