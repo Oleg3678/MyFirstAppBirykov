@@ -82,7 +82,7 @@ class MainActivity : AppCompatActivity() {
 
                 // Обновляем отображение
                 bindPost(post)
-
+                println("CLICK: Лайк")
                 // Показываем подсказку (для наглядности)
                 Toast.makeText(this@MainActivity,
                     if (post.likedByMe) "Лайк поставлен" else "Лайк убран",
@@ -91,6 +91,7 @@ class MainActivity : AppCompatActivity() {
 
             // Обработка репоста
             share.setOnClickListener {
+
                 // Увеличиваем счетчик репостов на 1
                 post = post.copy(
                     shares = post.shares + 1
@@ -98,23 +99,25 @@ class MainActivity : AppCompatActivity() {
 
                 // Обновляем отображение
                 bindPost(post)
-
+                println("CLICK: Репост +1")
                 Toast.makeText(this@MainActivity, "Репост +1", Toast.LENGTH_SHORT).show()
             }
 
             // Обработка меню (просто показать сообщение)
             menu.setOnClickListener {
+                println("CLICK: Меню поста")
                 Toast.makeText(this@MainActivity, "Меню поста", Toast.LENGTH_SHORT).show()
             }
 
             // Обработка аватарки
             avatar.setOnClickListener {
+                println("CLICK: Профиль автора")
                 Toast.makeText(this@MainActivity, "Профиль автора", Toast.LENGTH_SHORT).show()
             }
 
             // Обработка всего корневого layout (для исследования)
             root.setOnClickListener {
-                println("CLICK: корневой layout")
+                println("CLICK: Клик по фону")
                 Toast.makeText(this@MainActivity, "Клик по фону", Toast.LENGTH_SHORT).show()
             }
         }
