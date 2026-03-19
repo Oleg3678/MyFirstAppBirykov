@@ -1,134 +1,167 @@
 package ru.BirykovOleg.myfirstappbirykov
-import androidx.appcompat.app.AppCompatActivity
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
-import android.widget.ImageButton
-import android.widget.TextView
 import android.widget.Toast
-import androidx.room.util.copy
-import androidx.room3.util.copy
+import androidx.activity.viewModels
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.widget.addTextChangedListener
+import ru.BirykovOleg.myfirstappbirykov.activity.EditPostContract
+import ru.BirykovOleg.myfirstappbirykov.adapter.OnPostInteractionListener
+import ru.BirykovOleg.myfirstappbirykov.adapter.PostsAdapter
 import ru.BirykovOleg.myfirstappbirykov.databinding.ActivityMainBinding
 import ru.BirykovOleg.myfirstappbirykov.dto.Post
-import ru.BirykovOleg.myfirstappbirykov.util.FormatUtils.formatCount
-import java.text.DecimalFormat
+import ru.BirykovOleg.myfirstappbirykov.viewmodel.PostViewModel
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-    private lateinit var post: Post
+    private val viewModel: PostViewModel by viewModels()
+
+    // ID поста, который редактируется (0 = новый пост)
+    private var editingPostId: Long = 0L
+    private val editPostLauncher = registerForActivityResult(EditPostContract()) { result ->
+        if (!result.isNullOrBlank()) {
+            // Получен текст отредактированного/нового поста
+            viewModel.changeContent(result)
+            viewModel.save()
+        }
+    }
+
+
+    private val interactionListener = object : OnPostInteractionListener {
+        override fun onLike(post: Post) {
+            viewModel.likeById(post.id)
+        }
+
+        override fun onShare(post: Post) {
+
+            viewModel.shareById(post.id)
+            Toast.makeText(this@MainActivity, "Репост +1", Toast.LENGTH_SHORT).show()
+            val shareIntent = Intent().apply {
+                action = Intent.ACTION_SEND
+                putExtra(Intent.EXTRA_TEXT, post.content)
+                type = "text/plain"
+            }
+            val chooserIntent =
+                Intent.createChooser(shareIntent, getString(R.string.share_post_via))
+            startActivity(chooserIntent)
+            viewModel.shareById(post.id)
+
+        }
+
+        override fun onEdit(post: Post) {
+            editPostLauncher.launch(post.content)
+            // Сохраняем ID редактируемого поста
+            editingPostId = post.id
+            // Устанавливаем текст в поле ввода
+            binding.content.setText(post.content)
+            binding.content.setSelection(binding.content.text.length)
+            // Переводим фокус и показываем клавиатуру
+            binding.content.requestFocus()
+            showKeyboard(binding.content)
+            // Показываем панель отмены
+            binding.cancelGroup.visibility = View.VISIBLE
+        }
+
+        override fun onRemove(post: Post) {
+            viewModel.removeById(post.id)
+            Toast.makeText(this@MainActivity, "Пост удален", Toast.LENGTH_SHORT).show()
+        }
+
+        override fun onAvatarClick(post: Post) {
+            Toast.makeText(this@MainActivity, "Профиль: ${post.author}", Toast.LENGTH_SHORT).show()
+            viewModel.increaseViews(post.id)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 1. Создаем экземпляр Binding
         binding = ActivityMainBinding.inflate(layoutInflater)
-
-        // 2. Устанавливаем корневой View как content view
         setContentView(binding.root)
 
-        // 3. Создаем тестовые данные
-        post = Post(
-            id = 1,
-            author = "Футбольная афиша. Новости",
-            content = "Добро пожаловать на наш специализированный ресурс, посвященный миру футбола! Если вам интересна самая свежая информация о матчах, игроках, клубах и событиях футбольного сообщества — вы попали по адресу.",
-            published = "30 марта в 13:23",
-            likedByMe = false,
-            likes = 1000000,
-            shares = 25,
-            views = 5700
-        )
+        // Настройка адаптера
+        val adapter = PostsAdapter(interactionListener)
+        binding.list.adapter = adapter
 
-        // 4. Отображаем данные на экране
-        bindPost(post)
+        // Наблюдение за списком постов
+        viewModel.data.observe(this) { posts ->
+            adapter.submitList(posts)
+        }
 
-        // 5. Обработка кликов
-        setupClickListeners()
-    }
+        // Увеличиваем счетчик репостов
 
-    private fun bindPost(post: Post) {
-        // Используем View Binding для доступа к View
-        binding.apply {
-            author.text = post.author
-            published.text = post.published
-            content.text = post.content
+        // Отслеживание изменений текста от пользователя
+        binding.content.addTextChangedListener { text ->
+            // Обновляем ViewModel при изменении текста пользователем
+            viewModel.changeContent(text.toString())
+        }
 
-            // Устанавливаем текст для счетчиков с форматированием
-            likeCount.text = formatCount(post.likes)
-            shareCount.text = formatCount(post.shares)
-            viewsCount.text = formatCount(post.views)
+        // Кнопка сохранения
+        binding.save.setOnClickListener {
+            val text = binding.content.text.toString()
+            if (text.isBlank()) {
+                Toast.makeText(this, "Введите текст поста", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
 
-            // Устанавливаем правильную иконку лайка в зависимости от состояния
-            if (post.likedByMe) {
-                like.setImageResource(R.drawable.ic_like_filled)
+            // Если редактируем существующий пост
+            if (editingPostId != 0L) {
+                // Получаем текущий пост из ViewModel, обновляем его контент и сохраняем
+                viewModel.saveEditedPost(editingPostId, text)
+                editingPostId = 0L
             } else {
-                like.setImageResource(R.drawable.ic_like_border)
+                // Создаем новый пост
+                viewModel.changeContent(text)
+                viewModel.save()
             }
 
-            // Пример с ссылкой (заполняем, если есть)
-            linkTitle.text = "Самые свежие новости"
-            linkUrl.text = "football_poster.ru"
+            // Очищаем поле ввода
+            binding.content.text.clear()
+            // Скрываем панель отмены
+            binding.cancelGroup.visibility = View.GONE
+            // Скрываем клавиатуру
+            hideKeyboard(binding.content)
+        }
+        binding.fab.setOnClickListener {
+            // Запускаем создание нового поста
+            editPostLauncher.launch(null)  // null означает создание нового
+        }
+
+        // Кнопка отмены редактирования
+        binding.cancel.setOnClickListener {
+            // Очищаем ID редактируемого поста
+            editingPostId = 0L
+            // Очищаем поле ввода
+            binding.content.text.clear()
+            // Скрываем панель отмены
+            binding.cancelGroup.visibility = View.GONE
+            // Скрываем клавиатуру
+            hideKeyboard(binding.content)
+            // Отменяем редактирование в ViewModel
+            viewModel.cancelEdit()
         }
     }
 
-    private fun setupClickListeners() {
-        binding.apply {
-            // Обработка лайка
-            like.setOnClickListener {
-                // Меняем состояние
-                post = post.copy(
-                    likedByMe = !post.likedByMe,
-                    likes = if (post.likedByMe) post.likes - 1 else post.likes + 1
-                )
-
-                // Обновляем отображение
-                bindPost(post)
-
-                // Показываем подсказку (для наглядности)
-                Toast.makeText(this@MainActivity,
-                    if (post.likedByMe) "Лайк поставлен" else "Лайк убран",
-                    Toast.LENGTH_SHORT).show()
-            }
-
-            // Обработка репоста
-            share.setOnClickListener {
-                // Увеличиваем счетчик репостов на 1
-                post = post.copy(
-                    shares = post.shares + 1
-                )
-
-                // Обновляем отображение
-                bindPost(post)
-
-                Toast.makeText(this@MainActivity, "Репост +1", Toast.LENGTH_SHORT).show()
-            }
-
-            // Обработка меню (просто показать сообщение)
-            menu.setOnClickListener {
-                Toast.makeText(this@MainActivity, "Меню поста", Toast.LENGTH_SHORT).show()
-            }
-
-            // Обработка аватарки
-            avatar.setOnClickListener {
-                Toast.makeText(this@MainActivity, "Профиль автора", Toast.LENGTH_SHORT).show()
-            }
-
-            // Обработка всего корневого layout (для исследования)
-            root.setOnClickListener {
-                println("CLICK: корневой layout")
-                Toast.makeText(this@MainActivity, "Клик по фону", Toast.LENGTH_SHORT).show()
-            }
-        }
+    private fun hideKeyboard(view: View) {
+        val imm =
+            getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+        imm.hideSoftInputFromWindow(view.windowToken, 0)
     }
 
-//    /
-//    Форматирует число в удобочитаемый вид:
-//    999 -> 999
-//    1000 -> 1K
-//    1100 -> 1.1K
-//    10000 -> 10K
-//    11000 -> 11K (сотни не отображаются после 10K)
-//    1000000 -> 1M
-//    1300000 -> 1.3M
-//    /
+    private fun showKeyboard(view: View) {
+        val imm =
+            getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+        imm.showSoftInput(view, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+    }
+
 
 }
+
+
+
+
+
+
+
