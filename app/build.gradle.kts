@@ -36,6 +36,9 @@ defaultConfig {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+
     }
 }
 
@@ -50,4 +53,21 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    implementation("com.google.android.material:material:1.11.0")
+
+    // Lifecycle и ViewModel
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")
+    // LiveData
+    implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.7.0")
+    // Для viewModels delegation
+    implementation("androidx.activity:activity-ktx:1.8.0")
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
+    implementation("androidx.fragment:fragment-ktx:1.6.0")
+    implementation("com.google.code.gson:gson:2.10.1")
+
+    // Navigation Component
+    implementation("androidx.navigation:navigation-fragment-ktx:2.7.0")
+    implementation("androidx.navigation:navigation-ui-ktx:2.7.0")
+
+
 }
